@@ -1,4 +1,6 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, Output, EventEmitter } from '@angular/core';
+
+import { OrganisationService } from '../organisation.service'
 
 import * as Highcharts from 'highcharts';
 import networkgraph from 'highcharts/modules/networkgraph';
@@ -18,45 +20,73 @@ accessibility(Highcharts);
   styleUrls: ['./organisation.component.scss']
 })
 export class OrganisationComponent implements OnInit {
+  chartData: any[]
+  @Output() itemSelectedEvent = new EventEmitter()
   public options: any = {
     chart: {
-      height: 600,
-      inverted: true
+      height: 200,
+      width: 500,
+      inverted: true,
+      events: {
+        load: function(){
+          var renderer = this.renderer;
+          console.log(renderer)
+        }
+      }
     },
     title: {
-      text: 'Org Chart'
+      text: ''
     },
     series: [{
       type: 'organization',
-      name: 'Highsoft',
+      name: 'Highsoft updated',
       keys: ['from', 'to'],
       cursor: 'pointer',
       events: {
-        click: function (event) {
-          event.point.linksFrom.forEach(element => {
-            if(element.toNode){
-              if(element.toNode.linksFrom){
+        click: (event) => {
+          this.itemSelectedEvent.emit(event.point.id)
+          if(event.point.dataLabel.hasClass('active')){
+            event.point.dataLabel.removeClass('active')
+            event.point.linksFrom.forEach(element => {
+              removeActiveClass(element);
+              element.toNode.dataLabel.removeClass('active');
+            });
+          } else {
+            event.point.dataLabel.addClass('active')
+            event.point.linksFrom.forEach(element => {
+              highlightPoints(element);
+              element.toNode.dataLabel.addClass('active');
+            });
+          }
+          function highlightPoints(element) {
+            if (element.toNode) {
+              if (element.toNode.linksFrom) {
                 element.toNode.linksFrom.forEach(innerElement => {
+                  highlightPoints(innerElement);
                   innerElement.toNode.dataLabel.addClass('active');
                 })
               }
             }
-            element.toNode.dataLabel.addClass('active');
-          });
-        }
-    },
-      data: [
-        ['PMO', 'TM'],
-        ['TM', 'D1'],
-        ['TM', 'D2'],
-        ['TM', 'D3'],
-        ['D1', 'Intern'],
-      ],
+          }
+
+          function removeActiveClass(element) {
+            if (element.toNode) {
+              if (element.toNode.linksFrom) {
+                element.toNode.linksFrom.forEach(innerElement => {
+                  removeActiveClass(innerElement);
+                  innerElement.toNode.dataLabel.removeClass('active');
+                })
+              }
+            }
+          }
+        },
+      },
+      data: [],
       nodes: [
         {
           id: 'PMO',
           icon: 'account_circle',
-          name: 'Project Manager'
+          name: 'Project Manager',
         },
         {
           id: 'TM',
@@ -79,23 +109,45 @@ export class OrganisationComponent implements OnInit {
           name: 'Developer 3'
         },
         {
-          id: 'Intern',
+          id: 'I1',
           icon: 'account_circle',
           name: 'Intern'
         },
       ],
       dataLabels: {
-        nodeFormat : `{point.name}`
-      }
+        nodeFormat: `{point.name}`,
+      },
     }],
-
+    tooltip: {
+      enabled: false,
+      crosshairs: true,
+      formatter: function() {
+        return this.point.icon;
+      }
+    },
   };
-  
-  constructor() {}
 
+  constructor( 
+    private organisationService: OrganisationService
+  ) { }
+
+  getChartData(){
+    // this.chartData = this.organisationService.getChartData()
+    this.options.series[0].data = this.organisationService.dataArr
+    
+  }
   ngOnInit() {
+    this.getChartData()
     Highcharts.chart('container', this.options); // organization
-
   }
 
+  
+
+  // showChart(){
+  //   setTimeout(
+  //     ()=>{
+  //       Highcharts.chart('container', this.options); // organization
+  //     }, 0
+  //   )
+  // }
 }
